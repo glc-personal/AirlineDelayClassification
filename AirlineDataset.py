@@ -1,23 +1,29 @@
 import multiprocessing as mp
 import pandas as pd
 import numpy as np
+# PyTorch
 import torch
 from torch import Tensor
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.utils.data.sampler import SubsetRandomSampler
+
+# GLC Modules
 import prepocess as pp
 
 class AirlineDataset(Dataset):
-    def __init__(self, csv_fname, preprocess=True, transform=None):
+    def __init__(self, csv_fname, cores=1, jobspercore=1, preprocess=True, transform=None):
         '''
         Args:
             csv_fname (string): filename of the airline data csv.
             transform (callable, optional): Optional transform to be applied on a sample.
         '''
         self._index_delay = 5
+        self.cores = cores
+        self.jobspercore = jobspercore
         self.preprocess = preprocess
+        self.pool = mp.Pool(processes=self.cores)
         if self.preprocess == True:
-            self.data = pp.preprocess(csv_fname)
+            self.data = pp.preprocess(csv_fname, n=self.cores*self.jobspercore, pool=self.pool)
         else:
             df = pd.read_csv(csv_fname)
             self.data = Tensor(df.values)
@@ -32,7 +38,7 @@ class AirlineDataset(Dataset):
         sample = {'flight': flight, 'delay': label}
         return sample
 
-    def split(self, by=0.8, shuffle=True, random_seed=42):
+    def split_to_be_deprecated(self, by=0.8, shuffle=True, random_seed=42):
         '''
         Args:
             split (float): split amount, default is 80% of the data goes in the first, and 20% in the second.
