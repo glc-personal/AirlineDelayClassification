@@ -1,25 +1,49 @@
 # Preprocess: prepare the data for PyTorch.
 
+import multiprocessing as mp
 import pandas as pd
 import numpy as np
+# PyTorch
 from torch import Tensor
 from torch.utils.data import DataLoader
 
-def preprocess(csv_fname):
+def preprocess(csv_fname, n, pool):
     # Read in the csv file.
     df = pd.read_csv(csv_fname)
 
+    # Split the DataFrame into n smaller DataFrames.
+    dfs = []
+    dfs = _split_dataframe(df, n)
+
     # One-hot encode the original data.
-    df_one_hot_encoded = _one_hot_encode(df, ['Airline', 'AirportFrom', 'AirportTo'])
+    #df_one_hot_encoded = _one_hot_encode(df)
+    
+    dfs_one_hot_encoded = pool.map(_one_hot_encode, dfs)
+    print(len(dfs_one_hot_encoded))
 
     # Convert to a PyTorch Tensor object.
-    x = Tensor(df_one_hot_encoded.values)
-    return x
+    #x = Tensor(df_one_hot_encoded.values)
+    #return x
 
-def _one_hot_encode(df, arr_col_names):
+def _split_dataframe(df, n):
+    dfs = []
+    df_size = len(df)
+    nchunks = np.floor(df_size / float(n))
+
+    # Split the DataFrame into n DataFrames.
+    iend = 0
+    for i in range(n):
+        istart = int(iend)
+        iend = int(nchunks * (i + 1))
+        dfs.append(df.iloc[istart:iend,:])
+    return dfs
+
+def _one_hot_encode(df):
     '''
     One-Hot Encodes a Dataframe object for given column names.
     '''
+    arr_col_names = ['Airline', 'AirportFrom', 'AirportTo']
+
     # Get the number of entries in the Dataframe.
     n_entries = len(df)
 
